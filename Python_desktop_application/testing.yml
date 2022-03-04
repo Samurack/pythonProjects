@@ -1,0 +1,197 @@
+##############################################################################################
+# Template - java-mvn-build.yml
+# This is a job template that will do the following:
+# Download a secure cipher file
+# Run a Java build using Maven
+# Run a Sonar scan and upload the results to Sonar
+# Upload build artifacts to Azure
+# Publish build dependencies to Artifactory
+# Documentation on how to use this template https://confluence.churchofjesuschrist.org/x/HIJTAw 
+###############################################################################################
+
+# ALM Team Azure Artifactory Maven Java pipeline template
+# This job template will do the following:
+# Run a maven build
+# Publish build dependencies to Artifactory
+# Upload build artifacts to Azure
+# Run a SonarQube scan
+
+# Default parameter values.
+  parameters:
+    AgentDemands: 'Agent.ComputerName'
+    ArtifactName: 'drop'
+    ServiceConnection: 'ServiceConnection'
+    checkout: 'self'
+    DownloadSecureFile: 'false'
+    JavaVersion: '11' # Values can be 11 or 8. Default maven version is 11
+    MavenGoal: "clean verify"
+    MavenPomFile: 'pom.xml'
+    MavenPomPath: '.' # Location of Maven pom file
+    RunArtifactoryUpload: 'true'
+    RunDependencyUpdate: 'false'
+    RunMavenSonarScan: 'true' # Default is 'true'. Can be turned off by passing in a parameter
+    SecureFileName: ''
+    SecondServiceConnection: 'Second'
+    targetResolveReleaseRepo: 'mvn'
+    targetResolveSnapshotRepo: 'mvn'
+    targetDeployReleaseRepo: 'mvn-local-releases'
+    targetDeploySnapshotRepo: 'mvn-local-snapshots'
+    ContentsVars: 
+      Variable1: "**/*.jar"
+      Variable2: "**/manifest*.yml"
+      Variable3: "pom.xml"
+
+  jobs:
+  - job: Maven_Build
+    pool: 
+      name: 'Private Linux'
+      demands: '${{ parameters.AgentDemands }}'
+
+    variables: #Variables set for the pipeline run specific to Java
+      JDK8: '/opt/java/OpenJDK8U-jdk_x64_linux_hotspot_8u252b09.tar.gz'
+      JDK11: '/opt/java/OpenJDK11U-jdk_x64_linux_hotspot_11.0.7_10.tar.gz'
+      CodeCoverage: 'JaCoCo' #Default to JaCoCo, set to 'none' if RunMavenSonarScan is false. This is to prevent the maven goal from running twice
+      jfrog: '/opt/tfsagent/ad3/_work/_tool/jfrog/1.35.5/x64/jfrog'
+      RunMaven: 'false'
+
+    steps:
+    - checkout: ${{ parameters.checkout }}  # Prevent code check out
+      clean: true
+
+    #Set the versionSpec variable value to '1.8' if the parameter JdkVersionOption 1.8 is passed in
+    - script: echo '##vso[task.setvariable variable=UDependencies]clean verify -B -Dmaven.test.skip=true -Dartifactory.publish.artifacts=false'
+      displayName: "Set the VersionSpec value"
+      condition: and(succeeded(), eq('${{ parameters.RunDependencyUpdate }}', 'false'))
+
+    - script: echo '##vso[task.setvariable variable=UDependencies]clean verify -B -U -Dmaven.test.skip=true -Dartifactory.publish.artifacts=false'
+      displayName: "Set the VersionSpec value"
+      condition: and(succeeded(), eq('${{ parameters.RunDependencyUpdate }}', 'true'))
+
+    #Set the CodeCoverage variable value to 'none' to turn off the JaCoCo coverage and prevent the build from running twice
+    - script: echo '##vso[task.setvariable variable=CodeCoverage]none'
+      displayName: "Set the code coverage value"
+      condition: and(succeeded(), eq('${{ parameters.RunMavenSonarScan }}', 'false'))
+
+    - ${{ if ne(variables['Build.SourceBranch'], 'refs/heads/master') }}:
+      - bash: |
+            echo '##vso[task.setvariable variable=RunMavenSonarScan]false'
+            echo "We are not on the master branch. Setting RunMavenSonarScan to false."
+            if [[ ${{ parameters.RunMavenSonarScan }} == 'true' ]]; then
+              echo "##vso[task.logissue type=error]We are not on the Master branch, so the RunMavenSonarScan parameter must be set to false."
+            fi
+        displayName: 'Setting RunMavenSonarScan'
+
+    - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
+      - bash: |
+            echo '##vso[task.setvariable variable=RunMavenSonarScan]${{ parameters.RunMavenSonarScan }}'
+            echo "Setting RunMavenSonarScan to ${{ parameters.RunMavenSonarScan }}"
+        displayName: 'Setting RunMavenSonarScan'
+
+    # Installing Java for the pipeline run
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: '${{ parameters.JavaVersion }}'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'LocalDirectory'
+        jdkFile: $(JDK${{ parameters.JavaVersion }})
+        jdkDestinationDirectory: '$(Agent.HomeDirectory)/java'
+        cleanDestinationDirectory: true
+
+    # Download a secure file to the agent machine
+    - task: DownloadSecureFile@1 
+      condition: and(succeeded(), eq('${{ parameters.DownloadSecureFile }}', 'true'))
+      name: securefile # The name with which to reference the secure file's path on the agent, like $(securefile.secureFilePath)
+      displayName: 'Download Secure File'
+      inputs:
+        secureFile: '${{ parameters.SecureFileName }}'  # The file name or GUID of the secure file
+
+    # Runs the Sonar Qube prepare step unless the user sets RunMavenSonarScan to false
+    - task: SonarQubePrepare@4
+      displayName: 'Prepare analysis on SonarQube'
+      condition: and(succeeded(), eq('${{ parameters.RunMavenSonarScan }}', 'true'), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      inputs:
+        SonarQube: '${{ parameters.SecondServiceConnection }}' # SonarQube service connection
+        scannerMode: Other
+
+    ### Artifactory Publish Tasks ###
+    - task: ArtifactoryToolsInstaller@1
+      condition: and(succeeded(), eq('${{ parameters.RunArtifactoryUpload }}', 'true'))
+      inputs:
+        artifactoryService: '${{ parameters.ArtifactoryServiceConnection }}'
+        cliInstallationRepo: 'jfrog-cli'
+        installMavenExtractor: true
+        mavenInstallationRepo: 'mvn-remote-jcenter'
+
+    # Running clean verify to gather and upload build dependencies
+    - task: ArtifactoryMaven@2
+      inputs:
+        mavenPomFile: '${{ parameters.MavenPomPath }}/${{ parameters.MavenPomFile }}'
+        goals: '$(UDependencies)' # this must stay clean verify so we get the artifact, and dependencies uploaded
+        collectBuildInfo: true 
+        buildName: '$(Build.DefinitionName)'
+        buildNumber: '$(Build.BuildNumber)'
+        artifactoryResolverService: '${{ parameters.ServiceConnection }}' 
+        targetResolveReleaseRepo: '${{ parameters.targetResolveReleaseRepo }}'
+        targetResolveSnapshotRepo: '${{ parameters.targetResolveSnapshotRepo }}'
+        artifactoryDeployService: '${{ parameters.ServiceConnection }}'
+        targetDeployReleaseRepo: '${{ parameters.targetDeployReleaseRepo }}'
+        targetDeploySnapshotRepo: '${{ parameters.targetDeploySnapshotRepo }}'
+      displayName: 'Run Maven and Collect Build Dependencies'
+
+    # Requires a previous Artifactory task to upload build files, like ArtifactoryGenericUpload or the ArtifactoryMaven task
+    - task: ArtifactoryPublishBuildInfo@1
+      condition: and(succeeded(), eq('${{ parameters.RunArtifactoryUpload }}', 'true'))
+      displayName: 'Artifactory Publish Build Info'
+      inputs:
+        artifactoryService: '${{ parameters.ServiceConnection }}'
+        buildName: '$(Build.DefinitionName)'
+        buildNumber: '$(Build.BuildNumber)'
+        includeEnvVars: true
+
+    # This Maven task covers all build commands from the user
+    - task: Maven@3
+      inputs:
+        goals: '${{ parameters.MavenGoal }} -B -DbuildLifeId=$(Build.BuildNumber)'
+        mavenPomFile: '${{ parameters.MavenPomPath }}/${{ parameters.MavenPomFile }}' # Location of Maven pom file (might be non-xml)
+        mavenOptions: '-Xmx3072m'
+        javaHomeOption: 'JDKVersion'
+        testResultsFormat: 'JUnit'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        codeCoverageToolOption: '$(CodeCoverage)'
+        codeCoverageClassFilesDirectories: 'target/classes'
+        codeCoverageSourceDirectories: 'src/main'
+        effectivePomSkip: false
+        sonarQubeRunAnalysis: $(RunMavenSonarScan)
+        sqMavenPluginVersionChoice: 'latest'
+        jdkVersionOption: '1.${{ parameters.JavaVersion }}'
+        jdkArchitectureOption: 'x64'
+        mavenVersionOption: 'Default'
+        mavenAuthenticateFeed: false
+      displayName: 'Running Maven Build'
+
+    # Publish the test results for this pipeline run
+    - task: PublishTestResults@2
+      displayName: 'Publish Unit Tests'
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/TEST-*.xml'
+
+      # Copies the files for zipping in the next step
+    - ${{ each var in parameters.ContentsVars }}:
+        # Copies the files for zipping in the next step
+      - task: CopyFiles@2
+        inputs:
+          SourceFolder: '$(system.defaultworkingdirectory)/${{ parameters.MavenPomPath }}'
+          Contents: |
+            ${{ var.value }}
+          TargetFolder: '$(Build.ArtifactStagingDirectory)'
+        displayName: Copy ${{ var.value }}
+
+    #publish the build artifacts in the pipeline
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Build Artifacts'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: ${{ parameters.ArtifactName }}
+        publishLocation: 'Container'
