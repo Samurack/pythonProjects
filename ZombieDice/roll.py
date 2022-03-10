@@ -6,15 +6,17 @@ class roll():
 
 	def rollDice(self,ShotGunArray,BrainsArray):
 		roll = []
-		print(len(self.diceInHand))
+		removeDie = []
 		for die in self.diceInHand:
 			singleRoll = random.choice(die.getSides())
 			if singleRoll == "Brains":
 				BrainsArray.append(die)
-				self.diceInHand.remove(die)
+				removeDie.append(die)
 			if singleRoll == "Shotgun":
 				ShotGunArray.append(die)
-				self.diceInHand.remove(die)
+				removeDie.append(die)
 			print(singleRoll)
 			roll.append(singleRoll)
+		for remove in removeDie:
+			self.diceInHand.remove(remove)
 		return ShotGunArray, BrainsArray, roll

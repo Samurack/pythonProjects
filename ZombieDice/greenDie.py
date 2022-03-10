@@ -5,3 +5,6 @@ class greenDie(dice):
 	def __init__(self):
 		sides = ["Brains","Brains","Brains","Shotgun","Footprints","Footprints"]
 		super().__init__(sides,"green",6)
+
+	def showColor(self):
+		return "green"

@@ -4,7 +4,7 @@ from os import system
 from roll import roll
 from dice import dice
 
-class player():
+class playerTwo():
    def __init__(self, name, diceInHand, Brains, ShotGuns, typesOfDice):
       self.name = name
       self.numberOfDice = 3
@@ -28,32 +28,31 @@ class player():
             bagOfDice.pop()                        #remove that same die from the bagOfDice
       return self.diceInHand
 
-   def refillDice(self, bagOfDice):
-      self.diceInHand = self.selectDice(bagOfDice)
+   def refillDice(self, diceInHand, bagOfDice):
+      diceInHand = self.selectDice(bagOfDice)
       print("You now have")
-      for die in self.diceInHand:
+      for die in diceInHand:
          print(die.showColor())
-      return self.diceInHand
+      return diceInHand
 
-   def UsersNextRoll(self, tempHolder): #Roll dice per user request
+   def UsersNextRoll(self, diceInHand, tempHolder): #Roll dice per user request
       print("You Rolled")
-      nextRoll = roll(self.diceInHand)
+      nextRoll = roll(diceInHand)
       self.ShotGuns, tempHolder, rolls = nextRoll.rollDice(self.ShotGuns,tempHolder)
       return self.ShotGuns, tempHolder, rolls
 
-   def userTurn(self, bagOfDice):
-      _ = system('cls')
+   def userTurn(self, diceInHand, bagOfDice):
+      # _ = system('cls')
       startingValue = []
-
-      print("player", self.name,"You have", len(self.Brains), "Brains and", len(self.ShotGuns), "ShotGuns ")
-
+      for brain in self.Brains:
+         startingValue.append(brain)
       while len(self.ShotGuns) <= 2:
-         print("player", self.name,"You rolled", len(startingValue), "Brains and", len(self.ShotGuns), "ShotGuns ")
+         print("player", self.name,"You have", len(startingValue), "Brains and", len(self.ShotGuns), "ShotGuns ")
          decision = input("do you wish to roll again? y/n ")
          if decision == "y":
-            _ = system('cls')
-            self.diceInHand = self.refillDice(bagOfDice)
-            self.ShotGuns, startingValue, rolls = self.UsersNextRoll(startingValue)
+            # _ = system('cls')
+            diceInHand = self.refillDice(diceInHand, bagOfDice)
+            self.ShotGuns, startingValue, rolls = self.UsersNextRoll(diceInHand, startingValue)
          if decision == "n":
             for staringBrain in startingValue: 
                self.Brains.append(staringBrain)
