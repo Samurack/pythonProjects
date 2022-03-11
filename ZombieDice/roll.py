@@ -15,8 +15,17 @@ class roll():
 			if singleRoll == "Shotgun":
 				ShotGunArray.append(die)
 				removeDie.append(die)
+			if singleRoll == "DoubleBrains":
+				ShotGunArray.append(die)
+				ShotGunArray.append(die)
+				removeDie.append(die)
+			if singleRoll == "DoubleShotgun":
+				ShotGunArray.append(die)
+				ShotGunArray.append(die)
+				removeDie.append(die)
 			print(singleRoll)
 			roll.append(singleRoll)
+
 		for remove in removeDie:
 			self.diceInHand.remove(remove)
 		return ShotGunArray, BrainsArray, roll

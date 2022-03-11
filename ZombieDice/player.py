@@ -38,7 +38,7 @@ class player():
    def UsersNextRoll(self, tempHolder): #Roll dice per user request
       print("You Rolled")
       nextRoll = roll(self.diceInHand)
-      self.ShotGuns, tempHolder, rolls = nextRoll.rollDice(self.ShotGuns,tempHolder)
+      self.ShotGuns, tempHolder, rolls = nextRoll.rollDice(self.ShotGuns,tempHolder)#######################################################This needs to have the self.brains for checks on expansions rules
       return self.ShotGuns, tempHolder, rolls
 
    def userTurn(self, bagOfDice):

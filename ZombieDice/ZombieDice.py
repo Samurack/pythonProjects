@@ -16,7 +16,13 @@ PlayerOneBrains = []
 PlayerTwoShotGun = []
 PlayerTwoBrains = []
 diceInHand = []
-typesOfDice = [greenDie(),yellowDie(),redDie()]
+expansion = input("Are we playing the Hunk and Hottie expansion? y/n ")
+
+if expansion == "y":
+	typesOfDice = [greenDie(6),yellowDie(2),redDie(3),hottieDie(1),hunkDie(1)]
+else:
+	typesOfDice = [greenDie(6),yellowDie(4),redDie(3)]
+
 usersDiceInHand = 0
 playerOne = player("One", diceInHand, PlayerOneBrains, PlayerOneShotGun, typesOfDice)
 playerTwo = player("Two", diceInHand, PlayerTwoBrains, PlayerTwoShotGun, typesOfDice)
