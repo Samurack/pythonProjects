@@ -41,7 +41,6 @@ while won == "No":
 		else:
 			print("Congratulations PlayerOne you have won!")
 			won = "Yes"
-
 	playerTwo.userTurn(bagOfDice)
 	if(len(PlayerTwoBrains) >= 13):
 		print("PlayerOneBrains", len(PlayerOneBrains))

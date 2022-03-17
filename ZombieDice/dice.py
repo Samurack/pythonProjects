@@ -1,4 +1,5 @@
 #ZombieDice.py
+import random #https://stackoverflow.com/questions/473973/shuffle-an-array-with-python-randomize-array-item-order-with-python
 
 class dice():
 	def __init__(self, sides, color, totalNumberOfDice):
@@ -18,6 +19,7 @@ class dice():
 	def loadDiceBag(diceList):
 		typesOfDice = []
 		for dieType in diceList: #for all types of dice in list
-			for die in range(dieType.numberOfDice()): #add a die method for the amount of dice in the specified dices color
+			for die in range(dieType.numberOfDice()):
 				typesOfDice.append(dieType)
+		random.shuffle(typesOfDice)
 		return typesOfDice

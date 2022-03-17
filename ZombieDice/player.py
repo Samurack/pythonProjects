@@ -21,11 +21,11 @@ class player():
       if len(self.diceInHand) < self.numberOfDice:
          numberOfDiceNeeded = self.numberOfDice - len(self.diceInHand)
          for i in range(numberOfDiceNeeded):
-            random.shuffle(bagOfDice)              #shuffle the bag of dice
             if len(bagOfDice) == 0:
                bagOfDice = dice.loadDiceBag(self.typesOfDice) #load the initial bag the users will pull from
+            random.shuffle(bagOfDice)              #shuffle the bag of dice
             self.diceInHand.append(bagOfDice[0])   #pull a die from the bag and give it to users array diceInHand
-            bagOfDice.pop()                        #remove that same die from the bagOfDice
+            del bagOfDice[0]                        #remove that same die from the bagOfDice
       return self.diceInHand
 
    def refillDice(self, bagOfDice):
@@ -35,16 +35,15 @@ class player():
          print(die.showColor())
       return self.diceInHand
 
-   def UsersNextRoll(self, tempHolder): #Roll dice per user request
+   def UsersNextRoll(self, tempHolder, bagOfDice): #Roll dice per user request
       print("You Rolled")
       nextRoll = roll(self.diceInHand)
-      self.ShotGuns, tempHolder, rolls = nextRoll.rollDice(self.ShotGuns,tempHolder)#######################################################This needs to have the self.brains for checks on expansions rules
+      self.ShotGuns, tempHolder, rolls = nextRoll.rollDice(self.ShotGuns,tempHolder,bagOfDice) #######################################################This needs to have the self.brains for checks on expansions rules
       return self.ShotGuns, tempHolder, rolls
 
    def userTurn(self, bagOfDice):
       _ = system('cls')
       startingValue = []
-
       print("player", self.name,"You have", len(self.Brains), "Brains and", len(self.ShotGuns), "ShotGuns ")
 
       while len(self.ShotGuns) <= 2:
@@ -53,7 +52,7 @@ class player():
          if decision == "y":
             _ = system('cls')
             self.diceInHand = self.refillDice(bagOfDice)
-            self.ShotGuns, startingValue, rolls = self.UsersNextRoll(startingValue)
+            self.ShotGuns, startingValue, rolls = self.UsersNextRoll(startingValue, bagOfDice)
          if decision == "n":
             for staringBrain in startingValue: 
                self.Brains.append(staringBrain)
