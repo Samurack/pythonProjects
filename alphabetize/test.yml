@@ -1,0 +1,831 @@
+trigger: none
+pr: none
+
+resources:
+  repositories:
+    - repository: AzureTerraform
+      type: git
+      name: CPT/AzureTerraformState
+
+variables:
+  - group: 'Azure account provisioning Full variable list'
+  - name: AZURE_TENANT
+    value: "beta"
+
+stages:
+  - stage: createazuresubscription
+    displayName: Create Azure Subscription
+    variables:
+    - template: /variables/${{ variables.AZURE_TENANT }}.yml
+
+    jobs:
+      - template: templates/validate-inputs.yml
+        parameters: #19-0
+          AgentPool: $(PROVISIONING_AGENT_POOL)
+          CloudRegionParam: $(CLOUD_PROVIDER_REGION)
+          JobName: "ValidateInputs"
+          IsBeta: ${{ variables.isBeta}}
+          azureSubscriptionBackFill: ${{ variables.azureSubscriptionBackFill }}
+          AzureGroupSyncService: ${{ variables.azureGroupSyncService }}
+          StorageAccountName: $(STORAGE_NAME)
+          ReadySubscriptionName: $(READY_SUBSCRIPTION_NAME)
+          UserProvidedSubscriptionName: $(USER_PROVIDED_SUBSCRIPTION_NAME)
+          SubscriptionId: $(SUBSCRIPTION_ID)
+          SubscriptionEmail: $(SUBSCRIPTION_EMAIL)
+          Portfolio: $(PORTFOLIO)
+          Solution: $(SOLUTION)
+          ServiceNowOwnerGroup: $(SERVICE_NOW_OWNER_GROUP)
+          SigninEmail: $(MS_SIGNIN_EMAIL)
+          Lane: $(LANE)
+          UseNonProdKeyVault: $(USE_NON_PROD_KEY_VAULT)
+          DestinationTenant: $(AZURE_TENANT)
+          ServiceConnectionName: ${{ variables.azureSubscriptionServiceConnectionName }}
+
+      - template: templates/get-variables-from-key-vault.yml
+        parameters: #6-1
+          AgentPool: $(PROVISIONING_AGENT_POOL)
+          JobName: "AzureKeyVault"
+          ServiceConnectionName: $(KEY_VAULT_SERVICE_CONNECTION)
+          UseNonProdKeyVault: $(USE_NON_PROD_KEY_VAULT)
+          DestinationTenant: $(AZURE_TENANT)
+          DependsOn:
+            - ValidateInputs 
+
+      - template: templates/request-jwt.yml
+        parameters: #6-1
+          AgentPool: $(PROVISIONING_AGENT_POOL)
+          JobName: "RequestJwt"
+          OAuthUrl: $[ dependencies.AzureKeyVault.outputs['OUTPUT.OKTA_OAUTH_URL'] ]
+          OAuthClientId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.OKTA_OAUTH_CLIENT_ID'] ]
+          OAuthClientSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.OKTA_OAUTH_CLIENT_SECRET'] ]
+          DependsOn:
+            - AzureKeyVault
+
+      - template: templates/get-variables-for-customer.yml
+        parameters: #5-2
+          JobName: "CustomerVariables"
+          BaseUrl: $[ dependencies.AzureKeyVault.outputs['OUTPUT.CUSTOMER_VARIABLES_BASE_URL'] ]
+          IdToken: $[ dependencies.RequestJwt.outputs['OUTPUT.ID_TOKEN'] ]
+          DefaultParentOu: $(DefaultParentOu)
+          DependsOn:
+            - AzureKeyVault
+            - RequestJwt
+
+      - template: templates/send-event-job.yml
+        parameters: #7-3
+          JobName: SendEvent1
+          DisplayName: "(STATUS Setting Subscription ID)"
+          IdToken: $[ dependencies.RequestJwt.outputs['OUTPUT.ID_TOKEN'] ]
+          Url: $[ dependencies.AzureKeyVault.outputs['OUTPUT.PIPELINE_EVENTS_URL'] ]
+          EventsId: $[ dependencies.CustomerVariables.outputs['OUTPUT.EVENTS_ID'] ]
+          Message: "SUBSCRIPTION_ID!!$(SUBSCRIPTION_ID)" 
+          DependsOn:
+            - RequestJwt
+            - AzureKeyVault
+            - CustomerVariables
+
+        # Base64 encode the Azure DevOps token (PAT)
+      - template: templates/base64.yml ########################################################### SUBSCRIPTION REGION 
+        parameters: #4-1
+          AgentPool: $(PROVISIONING_AGENT_POOL)
+          JobName: "base64"
+          DependsOn:
+            - AzureKeyVault
+          AccessToken: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DEVOPS_TOKEN'] ]
+
+#       - template: templates/apply-subscription-tags.yml ########################################################### SUBSCRIPTION
+#         parameters: #10-2
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureSubscriptionBackFill }}
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           SubscriptionOwnerGroup: $(SERVICE_NOW_OWNER_GROUP)
+#           SubscriptionOwningPortfolio: $(PORTFOLIO)
+#           SubscriptionSolution: $(SOLUTION)
+#           SubscriptionContact: $(MS_SIGNIN_EMAIL)
+#           SubscriptionEnvironment: $(ENVIRONMENT)
+#           JobName: ApplySubscriptionTags
+#           DependsOn:
+#             - ValidateInputs
+#             - AzureKeyVault
+
+#       - template: templates/divvy.yml ########################################################### SUBSCRIPTION
+#         parameters: #11-1
+#           JobName: "Divvy"
+#           DivvyUsername: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DIVVY_USERNAME'] ]
+#           DivvyPassword: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DIVVY_PASSWORD'] ]
+#           DivvyBaseUrl: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DIVVY_BASE_URL'] ]
+#           DivvyAzureAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DIVVY_AZURE_APP_ID'] ]
+#           DivvyAzureSecretId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DIVVY_AZURE_SECRET_ID'] ]
+#           TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           Portfolio: $(PORTFOLIO)
+#           Solution: $(SOLUTION)
+#           Environment: $(ENVIRONMENT)
+#           DependsOn:
+#             - AzureKeyVault
+
+# ###########################################################################################################################
+#       - template: templates/send-event-job.yml ########################################################### SUBSCRIPTION REGION
+#         parameters: #7-3
+#           JobName: SendEvent2
+#           DisplayName: "(STATUS Azure Divvy Integration)"  #####GOES WITH JOB NAME POTENTIALLY. PROBABLY SHOULD BE THE SAME NAME.
+#           DependsOn:
+#             - AzureKeyVault
+#             - RequestJwt
+#             - CustomerVariables
+#           IdToken: $[ dependencies.RequestJwt.outputs['OUTPUT.ID_TOKEN'] ]
+#           Url: $[ dependencies.AzureKeyVault.outputs['OUTPUT.PIPELINE_EVENTS_URL'] ]
+#           EventsId: $[ dependencies.CustomerVariables.outputs['OUTPUT.EVENTS_ID'] ]
+#           Message: "STATUS!!Setting up Azure Divvy Integration"
+
+#       - template: templates/send-event-job.yml ########################################################### SUBSCRIPTION REGION
+#         parameters: #7-3
+#           JobName: SendEvent3
+#           DisplayName: "(STATUS RemoveAzureDefaults)"
+#           DependsOn:
+#             - RequestJwt
+#             - AzureKeyVault
+#             - CustomerVariables
+#           IdToken: $[ dependencies.RequestJwt.outputs['OUTPUT.ID_TOKEN'] ]
+#           Url: $[ dependencies.AzureKeyVault.outputs['OUTPUT.PIPELINE_EVENTS_URL'] ]
+#           EventsId: $[ dependencies.CustomerVariables.outputs['OUTPUT.EVENTS_ID'] ]
+#           Message: "STATUS!!Cleaning up" 
+
+
+#       ###########################################################################
+#       # ip space allocation
+#       ###########################################################################
+#       - template: templates/ip-space-allocation.yml
+#         parameters: #11-1
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: "IpSpaceAllocation"
+#           AccountId: $(SUBSCRIPTION_ID)
+#           Provider: $(CLOUD_PROVIDER)
+#           Region: $(CLOUD_PROVIDER_REGION)
+#           SubnetAllocationRequests: '[ { "availabilityZone": "A", "purpose": "agw_pri_subnet", "cidrSlash": "/28" }, { "availabilityZone": "B", "purpose": "agw_pub_subnet", "cidrSlash": "/28" }, { "availabilityZone": "A", "purpose": "api_pri_subnet", "cidrSlash": "/29" }, { "availabilityZone": "B", "purpose": "api_pub_subnet", "cidrSlash": "/29" }, { "availabilityZone": "A", "purpose": "logic_apps_subnet", "cidrSlash": "/28" }, { "availabilityZone": "A", "purpose": "appsvc_a_subnet", "cidrSlash": "/27" }, { "availabilityZone": "B", "purpose": "appsvc_b_subnet", "cidrSlash": "/27" }, { "availabilityZone": "A", "purpose": "data_subnet", "cidrSlash": "/27" }, { "availabilityZone": "A", "purpose": "cache_subnet", "cidrSlash": "/28" }, { "availabilityZone": "A", "purpose": "storage_subnet", "cidrSlash": "/28" }, { "availabilityZone": "A", "purpose": "event_msg_subnet", "cidrSlash": "/28" }, { "availabilityZone": "A", "purpose": "agw_exception_subnet", "cidrSlash": "/28" }, { "availabilityZone": "A", "purpose": "management_subnet", "cidrSlash": "/29" }, { "availabilityZone": "A", "purpose": "keyvault_subnet", "cidrSlash": "/29" }, { "availabilityZone": "A", "purpose": "app_private_endpoint_subnet", "cidrSlash": "/26" }]'
+#           # Azure implements AZs at a higher layer, the Vnet and various services, but not at the subnet
+#           ALLOCATER_USERNAME: $[ dependencies.AzureKeyVault.outputs['OUTPUT.IP_SPACE_ALLOCATER_USERNAME'] ]
+#           ALLOCATER_PASSWORD: $[ dependencies.AzureKeyVault.outputs['OUTPUT.IP_SPACE_ALLOCATER_PASSWORD'] ]
+#           AllocaterBaseUrl: $[ dependencies.AzureKeyVault.outputs['OUTPUT.IP_SPACE_ALLOCATER_BASE_URL'] ]
+#           CidrBlockPreAllocated: $[ dependencies.IsVnetAllocated.outputs['OUTPUT.CIDR_BLOCK_PRE_ALLOCATED'] ]
+#           DependsOn:
+#             - AzureKeyVault
+
+#       ############################################################################
+#       # Create Azure Subscription in Service Now with corresponding contact information
+#       ###########################################################################
+#       - template: templates/servicenow_account.yml
+#         parameters: #14-1
+#           JobName: ServiceNowAccount
+#           JobDisplayName: "ServiceNow Account"
+#           AccountName: $(USER_PROVIDED_SUBSCRIPTION_NAME)
+#           AccountId: $(SUBSCRIPTION_ID)
+#           Environment: $(SUBSCRIPTION_OFFER_TYPE)
+#           SupportGroup: $(SERVICE_NOW_OWNER_GROUP)
+#           ServiceNowUsername: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_NOW_USERNAME'] ]
+#           ServiceNowPassword: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_NOW_PASSWORD'] ]
+#           ServiceNowBaseUrl: "https://servicenow.churchofjesuschrist.org/"
+#           ServiceNowSolutionApiKey: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICENOW_SOLUTION_API_KEY'] ]
+#           ServiceNowSolutionEndpoint: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICENOW_SOLUTION_ENDPOINT'] ]
+#           ParentAccountId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           DependsOn:
+#             - AzureKeyVault
+
+
+#       ############################################################################
+#       # Azure Subscription Default Monitor Action Groups
+#       ############################################################################
+#       ####
+#       #THE MONITORING TERRAFORM MAY NOT HAVE REGION SPECIFIC PIECES. WE DO NEED TO CHECK THIS TO SEE IF IT WILL ALSO BE IN THE REGION PIPELINE.
+#       #### EVALUATE REGIONAL IMPACT
+#       ############################################################################
+#       - template: templates/execute-terraform-job.yml ########################################################### SUBSCRIPTION
+#         parameters: #20-5-3-1
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           AccessKey: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TERRAFORM_BACKEND_ACCESS_KEY'] ]
+#           JobName: "MonitorActionGroups"
+#           JobDisplayName: "MonitorActionGroups"
+#           DirectoryToExecute: "terraform/action_groups"
+#           Region: $(CLOUD_PROVIDER_REGION)
+#           StorageAccountName: ${{ variables.storageName }}
+#           ArmClientSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_KEY'] ]
+#           ArmClientId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_ID' ] ]
+#           StateFileName: "[VARIABLE_REGION]/subscription/action_groups.terraform.tfstate"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           LoggingSubscriptionId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_SUBSCRIPTION_ID'] ]
+#           ServicePrincipalObjectId: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_OBJECT_ID'] ]
+#           PipelineServicePrincipalObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.PIPELINE_SERVICE_PRINCIPAL_OBJECT_ID'] ]
+#           TerraformVersion: 0.14.11
+#           ServicenowItsmConnectionId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICENOW_ITSM_CONNECTION_ID'] ]
+#           ServicenowItsmWorkspaceId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICENOW_ITSM_WORKSPACE_ID'] ]
+#           DependsOn:
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+#             - CreateServicePrincipal
+#             - VNETSubnet
+#           TfVars:
+#             SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+#             WORKSPACE_ID: "3097a4ad-a247-4769-8328-0982ed928431|33512b69-7cfb-40e1-8917-a38d69c1e2a9"
+#             CONNECTION_ID: "96246e7e-d346-47a6-9bb9-cbeb6e7bdcf0"
+#           TfVarsFromOutput:
+#             TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+
+#       ############################################################################
+#       # Create Azure Devops project, and repo
+#       ############################################################################
+#       - template: templates/create-project-and-repo.yml ########################################################### SUBSCRIPTION
+#         parameters: #7-3
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: CreateProjectAndRepo
+#           PipelineName: $(PIPELINE_NAME)
+#           UserProvidedSubscriptionName: $(USER_PROVIDED_SUBSCRIPTION_NAME)
+#           B64T: $[ dependencies.base64.outputs['OUTPUT.BASE64TOKEN'] ]
+#           AccessToken: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DEVOPS_TOKEN'] ]
+#           DependsOn:
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+
+#       - template: templates/create-pipelines.yml ########################################################### SUBSCRIPTION
+#         parameters: #6-5
+#           JobName: CreatePipelines
+#           CPREGION: $(CLOUD_PROVIDER_REGION)
+#           B64T: $[ dependencies.base64.outputs['OUTPUT.BASE64TOKEN'] ]
+#           AccessToken: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DEVOPS_TOKEN'] ]
+#           ProjectId: $[ dependencies.CreateProjectAndRepo.outputs['Create_user_project.PROJECT_ID'] ]
+#           DependsOn:
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+#             - CreateProjectAndRepo
+#             - CreateServicePrincipal
+
+#       #### ADMIN ROLE ####
+#       - template: templates/create-assign-ad-group-role.yml ########################################################### SUBSCRIPTION
+#         parameters: #
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureGroupSyncService }}
+#           JobName: "Role_Admin"
+#           AzureCoreOutput: none
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           ADGroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Admin"
+#           ADGroupMailNickName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-adm"
+#           RoleNames: '"Contributor","Key Vault Administrator","Key Vault Contributor"'
+#           AzureAdAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           AzureAdApplicationObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_OBJECT_ID'] ]
+#           AzureAdAppSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           GroupName: azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Admin
+#           OwnerEmail: $(MS_SIGNIN_EMAIL)
+#           DependsOn:
+#             - AzureKeyVault
+
+#       - template: templates/azuread-access-review.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: AccessReview_Admin
+#           JobDisplayName: "AccessReview_Admin"
+#           GroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Admin"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           CLIENT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           CLIENT_SECRET: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           DependsOn:
+#             - Role_Admin
+#             - AzureKeyVault
+
+#       #### READER ROLE ####
+#       - template: templates/create-assign-ad-group-role.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureGroupSyncService }}
+#           JobName: "Role_Reader"
+#           AzureCoreOutput: none
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           ADGroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Readers"
+#           ADGroupMailNickName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-rdr"
+#           RoleNames: '"Reader","Key Vault Secrets User"'
+#           AzureAdAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           AzureAdApplicationObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_OBJECT_ID'] ]
+#           AzureAdAppSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           GroupName: azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Readers
+#           OwnerEmail: $(MS_SIGNIN_EMAIL)
+#           DependsOn:
+#             - AzureKeyVault
+
+#       - template: templates/azuread-access-review.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: AccessReview_Reader
+#           JobDisplayName: "AccessReview_Reader"
+#           GroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Readers"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           CLIENT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           CLIENT_SECRET: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           DependsOn:
+#             - Role_Reader
+#             - AzureKeyVault
+
+#       #### DATABASE ADMIN ####
+#       - template: templates/create-assign-ad-group-role.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureGroupSyncService }}
+#           JobName: "Role_DatabaseAdmin"
+#           AzureCoreOutput: none
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           ADGroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-DatabaseAdmin"
+#           ADGroupMailNickName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-dba"
+#           RoleNames: '"Cosmos DB Operator","Redis Cache Contributor","SQL DB Contributor","SQL Managed Instance Contributor","SQL Server Contributor","Backup Contributor","Storage Account Contributor"'
+#           AzureAdAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           AzureAdApplicationObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_OBJECT_ID'] ]
+#           AzureAdAppSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           GroupName: azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-DatabaseAdmin
+#           OwnerEmail: $(MS_SIGNIN_EMAIL)
+#           DependsOn:
+#             - AzureKeyVault
+
+#       - template: templates/azuread-access-review.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: AccessReview_DatabaseAdmin
+#           JobDisplayName: "AccessReview_DatabaseAdmin"
+#           GroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-DatabaseAdmin"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           CLIENT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           CLIENT_SECRET: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           DependsOn:
+#             - Role_DatabaseAdmin
+#             - AzureKeyVault          
+
+#       #### DATABASE READER ####
+#       - template: templates/create-assign-ad-group-role.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureGroupSyncService }}
+#           JobName: "Role_DatabaseReader"
+#           AzureCoreOutput: none
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           ADGroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-DatabaseReader"
+#           ADGroupMailNickName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-dbr"
+#           RoleNames: '"Storage Blob Data Reader","Storage File Data SMB Share Reader","Storage Queue Data Reader","Reader and Data Access","Cosmos DB Account Reader Role"'
+#           AzureAdAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           AzureAdApplicationObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_OBJECT_ID'] ]
+#           AzureAdAppSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           GroupName: azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-DatabaseReader
+#           OwnerEmail: $(MS_SIGNIN_EMAIL)
+#           DependsOn:
+#             - AzureKeyVault
+
+#       - template: templates/azuread-access-review.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: AccessReview_DatabaseReader
+#           JobDisplayName: "AccessReview_DatabaseReader"
+#           GroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-DatabaseReader"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           CLIENT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           CLIENT_SECRET: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           DependsOn:
+#             - Role_DatabaseReader
+#             - AzureKeyVault
+
+#       #### DEVELOPER ####
+#       - template: templates/create-assign-ad-group-role.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureGroupSyncService }}
+#           JobName: "Role_Developer"
+#           AzureCoreOutput: none
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           ADGroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Developer"
+#           ADGroupMailNickName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-dev"
+#           RoleNames: '"CDN Endpoint Contributor","API Management Service Contributor","App Configuration Data Owner","Application Insights Component Contributor","Azure Event Hubs Data Owner","Azure Service Bus Data Owner","Cognitive Services Contributor","Key Vault Contributor","Data Factory Contributor","Log Analytics Contributor","Logic App Contributor","Storage Account Contributor","Redis Cache Contributor","Storage Blob Data Owner","Storage Blob Data Contributor","Storage Queue Data Contributor","Tag Contributor"'
+#           AzureAdAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           AzureAdApplicationObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_OBJECT_ID'] ]
+#           AzureAdAppSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           GroupName: azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Developer
+#           OwnerEmail: $(MS_SIGNIN_EMAIL)
+#           DependsOn:
+#             - AzureKeyVault
+
+#       - template: templates/azuread-access-review.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: AccessReview_Developer
+#           JobDisplayName: "AccessReview_Developer"
+#           GroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Developer"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           CLIENT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           CLIENT_SECRET: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           DependsOn:
+#             - Role_Developer
+#             - AzureKeyVault
+
+#       - template: templates/create-azure-ad-group.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           JobName: AddOwnerToGroup_Developer
+#           JobDisplayName: "AddOwnerToGroup_Developer"
+#           AzureAdAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           AzureAdApplicationObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_OBJECT_ID'] ]
+#           AzureAdAppSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           SecurityPrincipalToAdd: $(MS_SIGNIN_EMAIL)
+#           GroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Developer"
+#           DependsOn:
+#             - Role_Developer
+#             - AzureKeyVault
+
+#       - template: templates/add-member-aad-group.yml
+#         parameters:
+#           JobName: AddServicePrincipal_Subscription_Developer
+#           JobDisplayName: "Add-ServicePrincipalToSubscription-DeveloperGroup"
+#           AzureAdAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           AzureAdApplicationObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_OBJECT_ID'] ]
+#           AzureAdAppSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           SecurityPrincipalToAdd:  $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_NAME'] ]
+#           GroupName: "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Developer"
+
+# ############################################CHECK AGAINST MASTER RICH MADE CHANGES
+#       - template: templates/create-azure-ad-group.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           JobName: AddDevloper_LogAnalytics_LogSenders_Config
+#           JobDisplayName: "AddDevloperGroupToGroup_LogAnalytics-LogSenders-Config"
+#           DependsOn:
+#             - Role_Developer
+#             - AzureKeyVault
+#             - CreateServicePrincipal
+
+#       - template: templates/add-member-aad-group.yml
+#         parameters:
+#           JobName: AddDeveloper_LogAnalytics_LogSenders_Config
+#           JobDisplayName: "Add-Developer_LogAnalytics-LogSenders-Config"
+#           AzureAdAppId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_ID'] ]
+#           AzureAdApplicationObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_OBJECT_ID'] ]
+#           AzureAdAppSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TENANT_AZURE_AD_CLIENT_SECRET'] ]
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           SecurityPrincipalToAdd:  "azure-$(USER_PROVIDED_SUBSCRIPTION_NAME)-Developer"
+#           GroupName: "LogAnalytics-LogSenders-Config"            
+#           DependsOn:
+#             - Role_Developer
+#             - AzureKeyVault
+#             - AddServicePrincipal_Subscription_Developer
+
+#       ############################################################################
+#       # Azure DevOps service connections
+#       ############################################################################
+#       - template: templates/create-Service-Principal.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           JobName: "CreateServicePrincipal"
+#           APP_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_CREATION_APP_ID'] ]
+#           TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           KEY_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_CREATION_KEY_ID'] ]
+#           SPID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_ID' ] ]
+#           KEY_VAULT_NAME: $[ dependencies.AzureKeyVault.outputs['OUTPUT.KEY_VAULT_NAME'] ]
+#           DependsOn:
+#             - base64
+#             - AzureKeyVault
+#             - CreateProjectAndRepo
+
+#       - template: templates/serviceConnections/Azure.yml ########################################################### SUBSCRIPTION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: "AzureServiceConnection"
+#           ACCOUNT_NAME: $(USER_PROVIDED_SUBSCRIPTION_NAME)
+#           PROJECT_ID: $[ dependencies.CreateProjectAndRepo.outputs['Create_user_project.PROJECT_ID'] ]
+#           TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           SERVICE_PRINCIPAL_ID: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_APP_ID'] ]
+#           SERVICE_PRINCIPAL_KEY: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_KEY'] ]
+#           B64T: $[ dependencies.base64.outputs['OUTPUT.BASE64TOKEN'] ]
+#           DependsOn:
+#             - base64
+#             - AzureKeyVault
+#             - CreatePipelines
+#             - CreateProjectAndRepo
+#             - CreateServicePrincipal
+
+#       ############################################################################
+#       # Azure DNS Configuration for private links
+#       ############################################################################
+#       - template: templates/register-dns-event.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: "RegisterPrivateLinkEvent"
+#           ServiceConnectionName: ${{ variables.azureSubscriptionServiceConnectionName }}
+#           CreateEventGridUri: $[ dependencies.AzureKeyVault.outputs['OUTPUT.CREATE_EVENT_GRID_URI'] ]
+#           UserSubscriptionId: $(SUBSCRIPTION_ID)
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           EventSubscriptionName: "private-link-create-and-delete-success"
+#           WebHookUrl: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DNS_EVENT_PRIVATE_LINK_WEBHOOK_URI'] ]
+#           ClientId: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_APP_ID'] ]
+#           ClientSecret: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_KEY'] ]
+#           ItemType: "PrivateLink"
+#           DependsOn:
+#             - AzureKeyVault
+#             - CreateServicePrincipal
+      
+#       - template: templates/register-dns-event.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: "RegisterAppGatewayEvent"
+#           ServiceConnectionName: ${{ variables.azureSubscriptionServiceConnectionName }}
+#           CreateEventGridUri: $[ dependencies.AzureKeyVault.outputs['OUTPUT.CREATE_EVENT_GRID_URI'] ]
+#           UserSubscriptionId: $(SUBSCRIPTION_ID)
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           EventSubscriptionName: "app-gateway-create-and-delete-success"
+#           WebHookUrl: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DNS_EVENT_APP_GATEWAY_WEBHOOK_URI'] ]
+#           ClientId: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_APP_ID'] ]
+#           ClientSecret: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_KEY'] ]
+#           ItemType: "AppGateway"
+#           DependsOn:
+#             - AzureKeyVault
+#             - CreateServicePrincipal
+
+#       ############################################################################
+#       # Subsription Logging Configuration
+#       ############################################################################
+#       - template: templates/execute-terraform-job.yml ########################################################### REGION
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           AccessKey: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TERRAFORM_BACKEND_ACCESS_KEY'] ]
+#           JobName: "LoggingConfiguration"
+#           JobDisplayName: "LoggingConfiguration"
+#           DirectoryToExecute: "terraform/logging_configuration"
+#           Region: $(CLOUD_PROVIDER_REGION)
+#           StorageAccountName: ${{ variables.storageName }}
+#           ArmClientSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_KEY'] ]
+#           ArmClientId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_ID' ] ]
+#           StateFileName: "logging_configuration/tfstate"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           LoggingSubscriptionId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_SUBSCRIPTION_ID'] ]
+#           LogAnalyticsWorkspaceName: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOG_ANALYTICS_WORKSPACE_NAME'] ]
+#           LoggingStorageAccountName: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_STORAGE_ACCOUNT_NAME'] ]
+#           LoggingEventhubName: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_EVENTHUB_NAME'] ]
+#           LoggingEventhubNamespaceName: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_EVENTHUBS_NAMESPACE_NAME'] ]
+#           DependsOn:
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+#           TfVars:
+#             CONTAINER_NAME: "terraformbackend"
+#             CURRENT_SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+#           TfVarsFromOutput:
+#             TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#             LOGGING_SUBSCRIPTION_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_SUBSCRIPTION_ID'] ]
+#             LOG_ANALYTICS_WORKSPACE_NAME: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOG_ANALYTICS_WORKSPACE_NAME'] ]
+#             LOGGING_STORAGE_ACCOUNT_NAME: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_STORAGE_ACCOUNT_NAME'] ]
+#             LOGGING_EVENTHUB_NAME: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_EVENTHUB_NAME'] ]
+#             LOGGING_EVENTHUBS_NAMESPACE_NAME: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_EVENTHUBS_NAMESPACE_NAME'] ]
+
+#       #############################################################################
+#       # Azure storage account blob containers for the users statefiles
+#       #############################################################################
+
+#       - template: templates/execute-terraform-job.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           AccessKey: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TERRAFORM_BACKEND_ACCESS_KEY'] ]
+#           JobName: "StorageAccount"
+#           JobDisplayName: "StorageAccount"
+#           DirectoryToExecute: "terraform/devops_container_backend"
+#           Region: $(CLOUD_PROVIDER_REGION)
+#           StorageAccountName: ${{ variables.storageName }}
+#           ArmClientSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_KEY'] ]
+#           ArmClientId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_ID' ] ]
+#           StateFileName: "devops_storage/tfstate"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           DependsOn:
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+#           TfVars:
+#             CONTAINER_NAME: "terraformbackend"
+#             SUBSCRIPTION_NAME: $(READY_SUBSCRIPTION_NAME)
+#             SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+#             STORAGE_NAME: "terraformbackend"
+#             BILLING_TOKEN: $(BILLING_TOKEN)
+#           TfVarsFromOutput:
+#             TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+
+#       #############################################################################
+#       # Azure VNet
+#       # cidrblock from from IP-space-allocation https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-overview
+#       #############################################################################
+
+#       - template: templates/execute-terraform-job.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           AccessKey: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TERRAFORM_BACKEND_ACCESS_KEY'] ]
+#           JobName: "VNETSubnet"
+#           JobDisplayName: "VNETSubnet"
+#           DirectoryToExecute: "terraform/vnet"
+#           Region: $(CLOUD_PROVIDER_REGION)
+#           StorageAccountName: ${{ variables.storageName }}
+#           ArmClientSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_KEY'] ]
+#           ArmClientId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_ID' ] ]
+#           ContainerName: $(TERRAFORM_STATE_CONTAINER_NAME)
+#           StateFileName: "vnet/tfstate"
+#           VarFilePath: "../terraform.tfvars"
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           CidrBlock: $[ dependencies.IpSpaceAllocation.outputs['OUTPUT.CIDR_BLOCK'] ]
+#           AzureRmSubnetAddressPrefix: $[ dependencies.IpSpaceAllocation.outputs['OUTPUT.CIDR_BLOCK'] ]
+#           DependsOn:
+#             - IpSpaceAllocation
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+#           TfVars:
+#             Region: $(CLOUD_PROVIDER_REGION)
+#             ROLE: ${{ variables.TfExecutionRole }}
+#             SESSION_NAME: ${{ variables.SessionName }}
+#             AZURERM_RESOURCE_GROUP_NAME: "default-rg"
+#             AZURERM_RESOURCE_GROUP_LOCATION: $(CLOUD_PROVIDER_REGION)
+#             AZURERM_VIRTUAL_NETWORK_NAME: "default"
+#             AZURERM_SUBNET_NAME: "subnet_vnet_default"
+#             AZURE_ADDRESS_SPACE: "10.52.0.0/16"
+#             BILLING_TOKEN: $(BILLING_TOKEN)
+#           TfVarsFromOutput:
+#             AZURERM_SUBNET_ADDRESS_PREFIX: $[ dependencies.IpSpaceAllocation.outputs['OUTPUT.CIDR_BLOCK'] ]
+#             TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#             SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+
+#       - template: templates/execute-terraform-job.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           RunMoreThanOnce: false
+#           AccessKey: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TERRAFORM_BACKEND_ACCESS_KEY'] ]
+#           JobName: "CreateHubToVNetConnection"
+#           JobDisplayName: "CreateHubToVNetConnection"
+#           DirectoryToExecute: "terraform/connectvnettohubinvwan"
+#           Region: $(CLOUD_PROVIDER_REGION)
+#           StorageAccountName: ${{ variables.storageName }}
+#           ArmClientSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_KEY'] ]
+#           ArmClientId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_ID' ] ]
+#           StateFileName: "vnetconnection-to-vwan-hub-east-us/tfstate"
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           CidrBlock: $[ dependencies.IpSpaceAllocation.outputs['OUTPUT.CIDR_BLOCK'] ]
+#           AzureRmSubnetAddressPrefix: $[ dependencies.IpSpaceAllocation.outputs['OUTPUT.CIDR_BLOCK'] ]
+#           VwanSubscriptionId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.VWAN_SUBSCRIPTION_ID'] ]
+#           VhubResourceGroup: $[ dependencies.AzureKeyVault.outputs['OUTPUT.VHUB_RESOURCE_GROUP'] ]
+#           DependsOn:
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+#             - IpSpaceAllocation
+#             - VNETSubnet
+#           TfVars:
+#             REMOTE_RESOURCE_GROUP: "default-rg"
+#             REMOTE_VIRTUAL_NETWORK: "default"
+#             HUB_TO_VIRTUAL_NETWORK_TRAFFIC_ALLOWED: true
+#             VIRTUAL_NETWORK_TO_HUB_GATEWAYS_TRAFFIC_ALLOWED: false
+#             INTERNET_SECURITY_ENABLED: true
+#             SUBSCRIPTION_NAME: $(USER_PROVIDED_SUBSCRIPTION_NAME)
+#             REGION: $(CLOUD_PROVIDER_REGION)
+#             SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+#             VHUB_UNIQUE_ID: $(Build.BuildID)
+#           TfVarsFromOutput:
+#             AZURERM_SUBNET_ADDRESS_PREFIX: $[ dependencies.IpSpaceAllocation.outputs['OUTPUT.CIDR_BLOCK'] ]
+#             TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#             VWAN_SUBSCRIPTION_ID: "$[ dependencies.AzureKeyVault.outputs['OUTPUT.VWAN_SUBSCRIPTION_ID'] ]"
+#             VHUB_RESOURCE_GROUP: "$[ dependencies.AzureKeyVault.outputs['OUTPUT.VHUB_RESOURCE_GROUP'] ]"
+
+#       ###########################################################################
+#       # Set VNet connection variable
+#       ###########################################################################
+#       - template: templates/set-vnet-connection-variable.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: "VnetConnectionVariable"
+#           B64T: $[ dependencies.base64.outputs['OUTPUT.BASE64TOKEN'] ]
+#           AccessToken: $[ dependencies.AzureKeyVault.outputs['OUTPUT.DEVOPS_TOKEN'] ]
+#           DependsOn:
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+#             - CreateHubToVNetConnection
+
+#       #############################################################################
+#       # Azure Subscription Default KeyVault
+#       #############################################################################
+
+#       - template: templates/execute-terraform-job.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           AccessKey: $[ dependencies.AzureKeyVault.outputs['OUTPUT.TERRAFORM_BACKEND_ACCESS_KEY'] ]
+#           JobName: "SubscriberKeyVault"
+#           JobDisplayName: "SubscriberKeyVault"
+#           DirectoryToExecute: "terraform/key_vault"
+#           Region: $(CLOUD_PROVIDER_REGION)
+#           StorageAccountName: ${{ variables.storageName }}
+#           ArmClientSecret: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_KEY'] ]
+#           ArmClientId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_ID'] ]
+#           StateFileName: "key_vault/tfstate"
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           LoggingSubscriptionId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.LOGGING_SUBSCRIPTION_ID'] ]
+#           ServicePrincipalObjectId: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_OBJECT_ID'] ]
+#           PipelineServicePrincipalObjectId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.PIPELINE_SERVICE_PRINCIPAL_OBJECT_ID'] ]
+#           TerraformVersion: 0.14.11
+#           DependsOn:
+#             - base64
+#             - ValidateInputs
+#             - AzureKeyVault
+#             - CreateServicePrincipal
+#             - MonitorActionGroups
+#             - RegisterPrivateLinkEvent
+#           TfVars:
+#             SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+#           TfVarsFromOutput:
+#             TENANT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#             SERVICE_PRINCIPAL_OBJECT_ID: $[ dependencies.CreateServicePrincipal.outputs['OUTPUT.USER_SERVICE_PRINCIPAL_OBJECT_ID'] ]
+#             PIPELINE_SERVICE_PRINCIPAL_OBJECT_ID: $[ dependencies.AzureKeyVault.outputs['OUTPUT.PIPELINE_SERVICE_PRINCIPAL_OBJECT_ID'] ]
+
+#       ############################################################################
+#       # Copy Azure Certificates
+#       ############################################################################
+#       - template: templates/copy-certificates.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           JobName: CopyCertificates
+#           ServiceConnectionName: ${{ variables.azureGroupSyncService }}
+#           AzureTenant: $(AZURE_TENANT)
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           UserProvidedSubscriptionName: $(READY_SUBSCRIPTION_NAME)
+#           CertUriRoot: $[ dependencies.AzureKeyVault.outputs['OUTPUT.CERT_URI_ROOT'] ]
+#           DependsOn:
+#             - ValidateInputs
+#             - AzureKeyVault
+#             - SubscriberKeyVault
+#             - VerifySubMoveRename
+            
+#       ##########################################################################
+#       # Down the home stretch: Move sub to MG and rename it.
+#       ##########################################################################
+#       - template: templates/add-management-group.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureSubscriptionBackFill }}
+#           JobName: "CreatePortfolioMG"
+#           AzureCoreOutput: none
+#           ParentManagementGroupName: $(AZURE_TENANT)  # parameterize this - possible values are 'Beta' or 'Prod'  suggest a variable called $(tenant)
+#           ManagementGroupName: $(Portfolio)
+#           DependsOn:
+#             - SubscriberKeyVault
+
+#       - template: templates/verify-subscription-move-and-rename.yml
+#         parameters:
+#           ServiceConnectionName: ${{ variables.azureSubscriptionBackFill }}
+#           JobName: "VerifySubMoveRename"
+#           AzureCoreOutput: none
+#           TenantId: $[ dependencies.AzureKeyVault.outputs['OUTPUT.SERVICE_PRINCIPAL_TENANT_ID'] ]
+#           ParentManagementGroupName: $(AZURE_TENANT)  # parameterize this - possible values are 'Beta' or 'Prod'  suggest a variable called $(tenant)
+#           ManagementGroupName: $(Portfolio)
+#           NewSubscriptionName:  $(USER_PROVIDED_SUBSCRIPTION_NAME)
+#           SubscriptionName: $(READY_SUBSCRIPTION_NAME)
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           DependsOn:
+#             - AzureKeyVault
+#             - CreatePortfolioMG
+
+#       - template: templates/move-az-subscription.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureSubscriptionBackFill }}
+#           JobName: "MoveAzSubscription"
+#           AzureCoreOutput: none
+#           TargetManagementGroup: $(Portfolio)
+#           SubscriptionName: $(READY_SUBSCRIPTION_NAME)
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           DependsOn:
+#             - CreatePortfolioMG
+#             - VerifySubMoveRename
+                  
+#       - template: templates/rename-subscription.yml
+#         parameters:
+#           AgentPool: $(PROVISIONING_AGENT_POOL)
+#           ServiceConnectionName: ${{ variables.azureSubscriptionBackFill }}
+#           SubscriptionId: $(SUBSCRIPTION_ID)
+#           JobName: "RenameSubscription"
+#           AzureCoreOutput: none
+#           DependsOn:
+#             - MoveAzSubscription
+#             - VerifySubMoveRename
+          
+#       - template: templates/send-event-job.yml
+#         parameters:
+#           JobName: SendEventFinal
+#           DisplayName: "(STATUS Complete)"
+#           IdToken: $[ dependencies.RequestJwt.outputs['OUTPUT.ID_TOKEN'] ]
+#           Url: $[ dependencies.AzureKeyVault.outputs['OUTPUT.PIPELINE_EVENTS_URL'] ]
+#           EventsId: $[ dependencies.CustomerVariables.outputs['OUTPUT.EVENTS_ID'] ]
+#           Message: "STATE!!COMPLETE"
+#           DependsOn:
+#             - RequestJwt
+#             - AzureKeyVault
+#             - CustomerVariables

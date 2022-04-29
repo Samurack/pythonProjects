@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Flask Tutorial</title>
+  </head>
+  <body>
+    {% extends "template.html" %}
+    {% block content %}
+
+    <center><h1><img src="{{url_for('static', filename='zombieDiceHeader.jpg')}}" align="middle" /></h1></center>
+    <input type="submit" name="submit_button" value="Do Something"> ##########################https://www.codegrepper.com/code-examples/python/flask+button+onclick
+    <p align=left>player one Brains {{ PlayerOneBrains }}</p>
+    <p align=right>player two Brains {{ PlayerTwoBrains }}</p>
+    <p align=left>player one Shotgun {{ PlayerOneShotGun }}</p>
+    <p align=right>player two Shotgun {{ PlayerTwoShotGun }}</p>
+    <center><p>Bag of Dice</p></center>
+    {% for die in bagOfDice %}
+      <center><li> {{ die.colorOfDie() }} </li></center>
+    {% endfor %}
+    {% endblock %}
+  </body>
+</html>

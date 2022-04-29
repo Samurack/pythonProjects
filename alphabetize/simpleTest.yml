@@ -1,0 +1,35 @@
+trigger: none
+pr: none
+
+resources:
+  repositories:
+    - repository: AzureTerraform
+      type: git
+      name: CPT/AzureTerraformState
+    
+variables:
+  - name: ORGANIZATION_NAME
+    value: "https://dev.azure.com/churchofjesuschrist"
+
+stages:
+  - stage: createazuresubscription
+    displayName: Create Azure Subscription
+    variables:    
+    - template: /variables/${{ variables.AZURE_TENANT }}.yml
+
+    jobs:
+      - template: templates/validate-inputs.yml ########################################################### SUBSCRIPTION REGION
+        parameters:
+          ReadySubscriptionName: $(READY_SUBSCRIPTION_NAME)
+          DependsOn:
+            - AzureKeyVault
+            - RequestJwt ########################not getting erased
+          azureSubscriptionBackFill: ${{ variables.azureSubscriptionBackFill }}
+          AzureGroupSyncService: ${{ variables.azureGroupSyncService }}
+          StorageAccountName: $(STORAGE_NAME)
+          ReadySubscriptionName: $(READY_SUBSCRIPTION_NAME)
+          UserProvidedSubscriptionName: $(USER_PROVIDED_SUBSCRIPTION_NAME)
+          SubscriptionId: $(SUBSCRIPTION_ID)
+          SubscriptionEmail: $(SUBSCRIPTION_EMAIL)
+          Portfolio: $(PORTFOLIO)
+
