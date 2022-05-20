@@ -24,7 +24,9 @@ usersListOfCards = usersCardsClass.getCards()
 # for result in prebuiltListOfCards:
 # 	print(result)
 
+
 for card in usersListOfCards:
-	if card in prebuiltListOfCards:
-		print("Found a card")
-		print(card)
+	for deckCard in prebuiltListOfCards: 
+		if not card.rstrip() == deckCard.rstrip():
+			print("You are missing this card")
+			print(card)

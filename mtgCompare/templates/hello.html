@@ -3,20 +3,32 @@
     <title>MTG find decks</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <style>
+      nav a {
+          color: #d64161;
+          font-size: 3em;
+          margin-left: 50px;
+          text-decoration: none;
+      }
+    </style>
 </head>
 <html>
    <body>
      <main>
+      {% block content %}
         <div class="px-4 py-3 my-2 text-center">
-            <img class="d-block mx-auto mb-4" src="{{ url_for('static', filename='images/azure-icon.svg') }}" alt="Azure Logo" width="192" height="192"/>
-            <!-- <img  src="/docs/5.1/assets/brand/bootstrap-logo.svg" alt="" width="72" height="57"> -->
-            <h1 class="display-6 fw-bold">You provided the prebuilt deck url {{collectionUrl}}</h1>
-            <h1 class="display-6 fw-bold">You provided the collection url {{deckUrl}}</h1>
-           <!--  <p class="fs-5">
-                It is nice to meet you!
-            </p> -->
+            <img class="d-block mx-auto mb-4" src="{{  url_for('static', filename='images/magic.jpg') }}" alt="Azure Logo" width="192" height="192"/>
+            <h1 class="display-6 fw-bold">Cards you have that match the deck provided </h1>
+            <div style="width: 50%; margin: auto">
+              {% for sameCard in sameCards %}
+              <div style="padding: 10px; background-color: #EEE; margin: 20px">
+                <p style="font-size: 24px">{{ sameCard }}</p>
+              </div>
+            {% endfor %}
             <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg px-4 gap-3">Back home</a>
+            </div>
           </div>
+          {% endblock %}
      </main>      
    </body>
 </html>

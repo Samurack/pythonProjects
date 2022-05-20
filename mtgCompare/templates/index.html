@@ -9,7 +9,6 @@
      <main>
         <div class="px-4 py-3 my-2 text-center">
             <img class="d-block mx-auto mb-4" src="{{ url_for('static', filename='images/magic.jpg') }}" alt="Azure Logo" width="192" height="192"/>
-            <!-- <img  src="/docs/5.1/assets/brand/bootstrap-logo.svg" alt="" width="72" height="57"> -->
             <h1 class="display-6 fw-bold text-primary">Lets Compare your cards to a Deck</h1>
           </div>
         <form method="post" action="{{url_for('hello')}}">
@@ -17,13 +16,13 @@
                 <label for="name" class="form-label fw-bold fs-5">Please provide the link to your TCG card collection (it must be publicly visible)</label>
 
                 <div class="d-grid gap-2 d-sm-flex justify-content-sm-center align-items-center my-1">
-                    <input type="text" class="form-control" id="collectionUrl" name="collectionUrl" style="max-width: 256px;">
+                    <input value="https://store.tcgplayer.com/collection/view/434613" type="text" class="form-control" id="collectionUrl" name="collectionUrl" style="max-width: 256px;">
                   </div>
 
                 <label for="name" class="form-label fw-bold fs-5">Please provide the link to the mtgtop8.com deck you want to build</label>
 
                 <div class="d-grid gap-2 d-sm-flex justify-content-sm-center align-items-center my-1">
-                    <input type="text" class="form-control" id="deckUrl" name="deckUrl" style="max-width: 256px;">
+                    <input value="https://www.mtgtop8.com/event?e=30989&d=441017&f=ST" type="text" class="form-control" id="deckUrl" name="deckUrl" style="max-width: 256px;">
                   </div>
 
                 <div class="d-grid gap-2 d-sm-flex justify-content-sm-center my-2">
