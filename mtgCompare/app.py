@@ -12,7 +12,7 @@ app = Flask(__name__)
 # https://portal.azure.com/#@jmichaelrollins89gmailcom.onmicrosoft.com/resource/subscriptions/062bd048-67c7-4556-8c26-ce4bdb2133a7/resourcegroups/MTG_Testing_Resource_Group/providers/Microsoft.Web/sites/Mtg-Search-For-Deck/appServices
 # https://search.brave.com/search?q=install+beautiful+soup&source=desktop
 # https://www.digitalocean.com/community/tutorials/how-to-use-templates-in-a-flask-application
-# https://www.azurebarry.com/getting-started-with-azure-event-grid/
+# https://docs.microsoft.com/en-us/azure/event-grid/overview
 @app.route('/')
 def index():
    print('Request for index page received')
