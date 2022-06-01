@@ -1,7 +1,6 @@
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory
-import requests
-import re
+import re, os, requests
 from usersCards import usersCards
 from prebuiltCards import prebuiltCards
 from bs4 import BeautifulSoup
@@ -22,7 +21,7 @@ def index():
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
-                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
+                               'favicon.ico', mimetype='image/magic.jpg')
 
 @app.route('/hello', methods=['POST'])
 def hello():
