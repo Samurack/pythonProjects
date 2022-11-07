@@ -23,15 +23,15 @@ warningList=[]
 websitesChecked=[]
 newWebsitesChecked=[]
 
-with open("D:\websiteBlocker\keyWords.txt") as file:
+with open("D:\code\pythonProjects\websiteBlocker\keyWords.txt") as file:
     for line in file:
        keyWords.append(line.rstrip().lower())
 
-with open("D:\websiteBlocker\warningList.txt") as file:
+with open("D:\code\pythonProjects\websiteBlocker\warningList.txt") as file:
     for line in file:
        warningList.append(line.rstrip().lower())
 
-with open("D:\websiteBlocker\websites.txt") as file:
+with open("D:\code\pythonProjects\websiteBlocker\websites.txt") as file:
     for line in file:
        websitesChecked.append(line.rstrip().lower())
 
