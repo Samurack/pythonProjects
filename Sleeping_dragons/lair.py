@@ -105,51 +105,51 @@ class Lair(Dragon, Eggs):
 
 class Easy_Lair(Lair):
     def __init__(self) -> None:
-        Lair.__init__(self, "dragon-asleep",	"""dragons image"""
-                        600, 				    """dragon x position"""
-                        100,  				    """dragon y position"""
-                        "one-egg", 			    """eggs image"""
-                        400,  				    """eggs x position"""
-                        100, 				    """eggs y position"""
-                        1,					    """egg_count"""
-                        False,				    """egg_hidden"""
-                        0,					    """egg_hide_counter"""
-                        10,					    """sleep_length"""
-                        0,					    """sleep_counter"""
-                        0)  					"""wake_counter"""
+        Lair.__init__(self, "dragon-asleep",	#dragons image
+                        600, 				#dragon x position
+                        100,  				#dragon y position
+                        "one-egg", 			#eggs image
+                        400,  				#eggs x position
+                        100, 				#eggs y position
+                        1,					#egg_count
+                        False,				#egg_hidden
+                        0,					#egg_hide_counter
+                        10,					#sleep_length
+                        0,					#sleep_counter
+                        0)
         """All attributes of the easy liar
         """
 
 class Medium_Lair(Lair):
     def __init__(self) -> None:
-        Lair.__init__(self, "dragon-asleep",	"""dragons image"""
-                        600, 				    """dragon x position"""
-                        300,  				    """dragon y position"""
-                        "two-eggs", 			"""eggs image"""
-                        400,  				    """eggs x position"""
-                        300, 				    """eggs y position"""
-                        2,					    """egg_count"""
-                        False,				    """egg_hidden"""
-                        0,					    """egg_hide_counter"""
-                        7,					    """sleep_length"""
-                        0,					    """sleep_counter"""
-                        0)  					"""wake_counter"""
-        """All attributes of the medium liar
+        Lair.__init__(self, "dragon-asleep",	#dragons image
+                        600, 				#dragon x position
+                        300,  				#dragon y position
+                        "two-eggs", 			#eggs image
+                        400,  				#eggs x position
+                        300, 				#eggs y position
+                        2,					#egg_count
+                        False,				#egg_hidden
+                        0,					#egg_hide_counter
+                        7,					#sleep_length
+                        0,					#sleep_counter
+                        0)					#wake_counter
+        """All attributes of the easy liar
         """
 
 class Hard_Lair(Lair):
     def __init__(self) -> None:
-        Lair.__init__(self, "dragon-asleep",	"""dragons image"""
-                        600, 				    """dragon x position"""
-                        500,  				    """dragon y position"""
-                        "three-eggs", 			"""eggs image"""
-                        400,  				    """eggs x position"""
-                        500, 				    """eggs y position"""
-                        3,					    """egg_count"""
-                        False,				    """egg_hidden"""
-                        0,					    """egg_hide_counter"""
-                        4,					    """sleep_length"""
-                        0,					    """sleep_counter"""
-                        0)  					"""wake_counter"""
-        """All attributes of the hard liar
+        Lair.__init__(self, "dragon-asleep",	#dragons image
+                        600, 				#dragon x position
+                        500,  				#dragon y position
+                        "three-eggs", 			#eggs image
+                        400,  				#eggs x position
+                        500, 				#eggs y position
+                        3,					#egg_count
+                        False,				#egg_hidden
+                        0,					#egg_hide_counter
+                        4,					#sleep_length
+                        0,					#sleep_counter
+                        0)					#wake_counter
+        """All attributes of the easy liar
         """
