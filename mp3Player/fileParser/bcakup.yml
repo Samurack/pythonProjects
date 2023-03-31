@@ -1,0 +1,34 @@
+# ALM Team Azure example pipeline that pulls in the maven build template from the devops_pipelines repository
+# Copy this file to your repository and fill in the required parameters, AppName and Portfolio
+# Commit the changes and trigger a new build
+
+name: $(SourceBranchName)-2.1.0.5-SNAPSHOT.$(BuildID)-$(Date:yyyyMMdd)
+trigger:
+    - master
+resources:
+  repositories:
+    - repository: almtemplates
+      type: git
+      name: ALM/devops_pipelines
+      ref: refs/tags/java-mvn-bld2.x.x                              #tag reference for a specific version of the template we want to use.
+
+stages:
+  - stage: build
+    jobs:
+      - template: java-mvn-build/java-mvn-build.yml@almtemplates
+        parameters:
+          Portfolio: 'Church History'
+
+          #AppName: 'pb-persistence'
+          #Version: '2.1.0.5-SNAPSHOT' # Used as the docker image tag. Could also be a variable like $(Build.BuildNumber)
+          ArtifactoryServiceConnection: 'ALM Artifactory Internal'         # Artifactory service connection
+          SonarServiceConnection: 'ALM Sonar' # Sonar service connection
+          # Optional Parameters showing the current default value
+          ScanBuildArtifacts: 'true' # Control Artifactory Xray scan
+          RunMavenSonarScan: 'true' # Run SonarQube scan
+          DownloadSecureFile: 'true'
+          SecureFileName: 'tomcatKeyStore.jks'
+          MavenGoal: clean install -Dlds.cipher.file=$(securefile.secureFilePath)
+          AgentDemands: docker
+
+

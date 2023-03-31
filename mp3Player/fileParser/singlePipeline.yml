@@ -1,0 +1,36 @@
+# EP - Test pipeline to run job templates
+# This example pipeline calls the template from the templates directory in the same repo or in devops_pipelines
+# To call the template from a different repo use the resources block
+###########################################################################################################################
+# Lines that should be caught 24, 30, 49, 88, 126, 146, 167, 217, 237, 274, 294, 341, 361, 383
+###########################################################################################################################
+trigger:
+- none
+
+resources:
+  repositories:
+    - repository: CodeRepository
+      type: git
+      name: ALM/java-template-testing
+      ref: 'master' # The code branch should always be master
+
+stages:
+# ************************************
+# ***** Stage Maven_Build *****
+# ************************************
+- stage: MarkLogic_Build
+  jobs:
+  - template: ../marklogic/marklogic-build.yml
+    parameters:
+      AgentDemands: 'Docker'
+      checkout: CodeRepository
+      ContentsVars: 
+        Variable1: "**/*.jar"
+        Variable2: "**/manifest*.yml"
+        Variable3: "**/pom.xml"
+        Variable4: "**/*.xar"
+      JavaVersion: '11' # Values can be 11 or 8. Default maven version is 11
+      MavenGoal: '--batch-mode clean install -e -U' # Optional
+      MavenPomFile: 'pom.xml'
+      # MavenPomPath: '.' # Location of Maven pom file
+      #XarProfile: '${{ variables.profile }}'

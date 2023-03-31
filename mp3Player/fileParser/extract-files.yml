@@ -1,0 +1,39 @@
+#########################################
+# This creates a repository resource
+# named ALMTemplates and points to the
+# ALM devops_pipeline repository.
+#########################################
+resources:
+  repositories:
+    - repository: 'AlmTemplates'
+      type: git
+      name: ALM/devops_pipelines
+ 
+########################################################################################################################
+# Change this value to a branch name if
+# a CI build is desired. For more
+# information on triggers:
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/repos/azure-repos-git?view=azure-devops&tabs=yaml#ci-triggers
+########################################################################################################################
+trigger:
+- none
+####################################################################################################
+# Name the stage what ever you like.
+# For more information on stages:
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/process/stages?view=azure-devops&tabs=yaml
+####################################################################################################
+stages:
+  - stage: 'Build Stage'                                               
+    jobs:
+      - job:
+        displayName: Build                                                  # Again name the job what ever you want. For more information on jobs: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/phases?tabs=yaml&view=azure-devops
+        pool:
+          name: Default                                                     # Change the pool name to which ever pool is needed. Use 'Default' for Windows agents 'Private Linux' for Linux agents.
+        steps:                                                              # for more information on steps: https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema?view=azure-devops&tabs=schema%2Cparameter-schema#steps
+                                                                            # add any other tasks/stpes needed for your pipeline
+        - template: extract-files/extract-files.yml@AlmTemplates             # This line calls the ALM .Net Core template task. If any default parameters need to be changed, uncomment the parameter section and the parameter that needs to be changed.steps:
+          parameters:
+              archiveFilePatterns: '$(Build.SourcesDirectory)/**/*.zip'     # Patterns to match the archives you want to extract. https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/file-matching-patterns?view=azure-devops
+              destinationFolder: '$(Build.SourcesDirectory)'                # Folder where the archives will be extracted. The default file path is relative to the root folder of the repo
+              cleanDestinationFolder: false                                 # Set to true to delete all existing files in the destination folder before beginning to extract archives.
+              overwriteExistingFiles: true                                  # Set to true to overwrite files in the output directory if they already exist.

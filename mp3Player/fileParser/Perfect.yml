@@ -1,0 +1,24 @@
+#This should be perfect with no errors
+trigger:
+- none
+
+resources:
+  repositories:
+    - repository: CodeRepository
+      type: git
+      name: ALM/java-template-testing
+      ref: 'master' # The code branch should always be master
+
+stages:
+# ************************************
+# ***** Stage Maven_Build *****
+# ************************************
+
+- stage: cf_push_deploy_1
+  jobs:
+  - template: ../cloudfoundry-deploy/cf-deploy-job.yml
+    parameters:
+      CFServiceConnection: 'CloudFoundry Login'
+      org: 'ESM'
+      space: 'alm-test'
+  condition: always()

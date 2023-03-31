@@ -1,0 +1,26 @@
+###################################
+# Repo: devops_pipelines/templates
+# File: azure-pipelines.yml
+###################################
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: ALM/devops_pipelines
+      ref: refs/tags/docker-img-promo2.x.x                              #tag reference for a specific version of the template we want to use.
+  
+  
+- stage: DockerImagePromotion
+  jobs:
+  - template: docker-image-promotion/docker-image-promotion.yml@templates
+    parameters:
+      DockerRepoPath: 'Docker image source repository path'             #Required path to image. Pass '.' if image is at the root of the Source Repository
+      UserName: 'your user name'                                        #Required Artifactory user name for authentication
+      VariableGroup: 'your pipeline variable group'                     #Required variable group containing secured variable named API_KEY that contains the user's API Key
+      # Optional ArtifactoryServer: 'external'                          #Default 'external'. Change to 'internal' if promoting images on the internal Artifactory server
+      # Optional checkout: 'none'                                       #for more information please see https://confluence.churchofjesuschrist.org/display/ALM/Pipeline+checkout+feature
+      # Optional KeepCopyInSource: 'false'                              #Default Leave a copy image in the source repository. Default is false
+      # Optional SourceRepo: 'builds-shared-nonprod'                    #Default Internal shared repository for uploading build dependencies
+      # Optional SourceTag: 'latest'                                    #Default If empty, the entire repo will be promoted
+      # Optional TargetRepo: 'builds-shared-prod'                       #Default Internal shared repository for uploading build dependencies
+      # Optional TargetTag: ''                                          #Default If empty, the source tag value will be used

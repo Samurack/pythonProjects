@@ -1,0 +1,40 @@
+#############################################################################################
+# ALM Team Azure example pipeline that pulls in the maven build template from the
+# devops_pipelines repository
+# Copy this file to your repository and fill in the required parameters,
+# AppName and Portfolio Commit the changes and trigger a new build
+############################################################################################# 
+trigger:
+  - master
+   
+resources:
+  repositories:
+    - repository: almtemplates
+      type: git
+      name: ALM/devops_pipelines
+      ref: refs/tags/cf-deploy2.x.x                                      # tag reference for a specific version of the template we want to use.
+   
+stages:
+  - stage: cf_Deploy
+    jobs:
+    - template: cloudfoundry-deploy/cloudfoundry-deploy.yml@almtemplates
+      parameters:
+        CFServiceConnection: 'Cloud Foundry Service connection'          # Cloud Foundry serviceConnection
+        org: ''                                                          # Cloud foundry Organization
+        space: ''                                                        # Cloud foundry Space
+        # Optional additionalDeployArgs: ''
+        # Optional artifactName: 'drop'
+        # Optional buildType: 'current'
+        # Optional buildVersion: 'latest'
+        # Optional cfServiceConnection: ''
+        # Optional checkout: 'none'                                      # for more information please see https://confluence.churchofjesuschrist.org/display/ALM/Pipeline+checkout+feature
+        # Optional cfVersion: '7.2.0'
+        # Optional environment: 'staging'                                # The environment needed for a deploy job
+        # Optional ManifestPath: '/drop/manifests/manifest-test.yml'     # Optional. Default to drop folder.
+        # Optional pipeline: ''                                          # The build ID of the specific bulid pipeline https://docs.microsoft.com/en-us/azure/devops/pipelines/build/variables?view=azure-devops&tabs=yaml
+        # Optional pool: 'Private Linux'
+        # Optional project: '$(System.TeamProject)'
+        # Optional specificBuildWithTriggering: true
+        # Optional targetPath: '$(Pipeline.Workspace)'
+        # Optional ZipFilePattern: ''                                    # we recommend using the format '**/*.zip' for generic finding of zip files.
+     condition: always()

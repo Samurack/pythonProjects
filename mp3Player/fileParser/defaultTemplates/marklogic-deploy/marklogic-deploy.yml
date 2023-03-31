@@ -1,0 +1,41 @@
+#########################################################
+# ALM Team Azure example pipeline that pulls in the
+# maven build template from the devops_pipelines
+# repository Copy this file to your repository and
+# fill in the required parameters, AppName and Portfolio
+# Commit the changes and trigger a new build
+######################################################### 
+trigger:
+  - master
+  
+  
+resources:
+  repositories:
+    - repository: almtemplates
+      type: git
+      name: ALM/devops_pipelines
+      ref: refs/tags/marklogic-deploy1.x.x                          #tag reference for a specific version of the template we want to use.
+ 
+stages:
+  - stage: cf_Deploy
+    jobs:
+    - template: marklogic/marklogic-deploy.yml@almtemplates
+      parameters:
+        MavenPomPath: '.'                                           # Location of Maven pom file
+        XarArtifactPath: 'drop/target'                              # Location of the xar file that needs to be unzipped
+        XarFileName: ''                                             # What's the name of the xar file we are unzipping? Default uses all names that have an xar file end in the XarArtifactPath location.
+        XarFilePath: ''                                             # What is the xar file path for the deploy step?
+        # Optional Pipeline: '$(Build.DefinitionName)'              # https://docs.microsoft.com/en-us/azure/devops/pipelines/build/variables?view=azure-devops&tabs=yaml
+        # Optional AgentDemands: 'Agent.ComputerName'               # The agent randomly assigned by the agent pool
+        # Optional AgentPoolName: 'Private Linux'                   # The Default Linux pool
+        # Optional ArtifactPath: 'drop'                             # The folder your artifact is stored in
+        # Optional BuildType: 'current'                             # This value allows the user to download a pipeline build artifact more information can be found in the Microsoft Documentation
+        # Optional checkout: 'self'                                 # for more information please see https://confluence.churchofjesuschrist.org/display/ALM/Pipeline+checkout+feature
+        # Optional DeployCommand: ''                                # If you are adding the deploy command in at run time rather the in the XAR file as a profile use this varaible.
+        # Optional JavaVersion: '11'                                # Values can be 11 or 8. Default maven version is 11
+        # Optional MavenGoal: "--batch-mode xar:deploy"             # Here we are running a basic clean install showing execution errors. We are also doing a check for missing releases, and updated snapshots on remote repositories.
+        # Optional MavenPomFile: 'pom.xml'                          # This assumes the user has a pom file at the root of their repository.
+        # Optional Profile: 'deployment'                            # xar profile for deploy
+        # Optional Project: '$(System.TeamProject)'                 # https://docs.microsoft.com/en-us/azure/devops/pipelines/build/variables?view=azure-devops&tabs=yaml
+        # Optional SpecificBuildWithTriggering: true                # If true the build task will download artifacts from this build if false it will use the other vars in this task to specify the artifact location
+        # Optional TargetPath: '$(Pipeline.Workspace)'              # File path to download the pipeline build artifact

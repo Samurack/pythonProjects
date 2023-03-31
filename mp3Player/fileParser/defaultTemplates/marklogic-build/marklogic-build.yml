@@ -1,0 +1,40 @@
+###################################################
+# ALM Team Azure example pipeline that pulls in the
+# maven build template from the devops_pipelines
+# repository Copy this file to your repository
+# and fill in the required parameters, AppName
+# and Portfolio Commit the changes and
+# trigger a new build
+################################################### 
+trigger:
+  - master
+  
+  
+resources:
+  repositories:
+    - repository: almtemplates
+      type: git
+      name: ALM/devops_pipelines
+      ref: refs/tags/marklogic-build1.x.x                                   #tag reference for a specific version of the template we want to use.
+ 
+stages:
+  - stage: cf_Deploy
+    jobs:
+
+    - template: marklogic/marklogic-build.yml@almtemplates
+      parameters:
+        MavenPomPath: '.' # Location of Maven pom file                      # This uses the current working directory as a default
+        XarProfile: 'deployment'                                            # xar profile for deploy
+        # Optional AgentDemands: 'Agent.ComputerName'                       # The agent randomly assigned by the agent pool
+        # Optional AgentPoolName: 'Private Linux'                           # The Default Linux pool
+        # Optional ArtifactName: 'drop'                                     # The folder you want to store your pipeline artifact in (drop is the default system name).
+        # Optional checkout: 'self'                                         # for more information please see https://confluence.churchofjesuschrist.org/display/ALM/Pipeline+checkout+feature
+        # Optional ContentsVars:                                            # These key value pairs can bee added to by adding a new line to the ContentsVars varaible array. The key name (example 'varaible1') can be anything you want. The Value (right side) needs to be any file relavant to the deploy step of your pipeline. BE AWARE if you override this you will need to add in all the key value pairs as the defaults won't auto popluate.
+            # Optional Variable1: "**/*.jar"
+            # Optional Variable2: "**/manifest*.yml"
+            # Optional Variable3: "./pom.xml"
+            # Optional Variable4: "**/*.xar"
+        # Optional JavaVersion: '11'                                        # Values can be 11 or 8. Default maven version is 11
+        # Optional MavenGoal: "--batch-mode clean install -e -U"            # Here we are running a basic clean install showing execution errors. We are also doing a check for missing releases, and updated snapshots on remote repositories.
+        # Optional MavenPomFile: 'pom.xml'                                  # This assumes the user has a pom file at the root of their repository.
+     condition: always()

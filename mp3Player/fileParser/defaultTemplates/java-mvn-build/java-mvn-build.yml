@@ -1,0 +1,46 @@
+###############################################################
+# ALM Team Azure example pipeline that pulls in the maven build
+# template from the devops_pipelines repository
+# Copy this file to your repository and fill in the required
+# parameters, AppName and Portfolio
+# Commit the changes and trigger a new build
+############################################################### 
+trigger:
+- master
+   
+# Repo: devops_pipelines/templates
+# File: azure-pipelines.yml
+resources:
+  repositories:
+    - repository: almtemplates
+      type: git
+      name: ALM/devops_pipelines
+      ref: refs/tags/java-mvn-bld2.x.x                                                              #tag reference for a specific version of the template we want to use.
+   
+stages:
+- stage: Build
+  jobs:
+  - template: java-mvn-build/java-mvn-build.yml@almtemplates
+    parameters:
+      # Optional AgentDemands: 'Agent.ComputerName'
+      # Optional ArtifactName: 'drop'
+      # Optional ArtifactoryServiceConnection: 'ALM Artifactory Internal'                           #Default internal Artifactory service connection created by the ALM Team
+      # Optional checkout: 'self'                                                                   #for more information please see https://confluence.churchofjesuschrist.org/display/ALM/Pipeline+checkout+feature     
+      # Optional DownloadSecureFile: 'true'                                                         #Default false, set to true if you want to pass in a secure file containing a cipher key
+      # Optional JavaVersion: '11'                                                                  #Default Java version is 11. Pass in '8' for JDK 8
+      # Optional MavenGoal: 'clean install'                                                         #Default clean install
+      # Optional MavenPomFile: 'pom.xml'
+      # Optional MavenPomPath: '.'                                                                  #Location of Maven pom file
+      # Optional RunArtifactoryUpload: 'false'                                                      #Default  is true, set to 'false' if your build artifact is a pom file
+      # Optional RunDependencyUpdate: 'false'                                                       #Default is false
+      # Optional RunMavenSonarScan: 'true'                                                          # This expression will return true if the branch is master. Set to 'false' if a scan is unwanted on the master branch.
+      # Optional SecureFileName: 'your secure file name'                                            #Default the name of the secure file that was added to your project
+      # Optional SonarServiceConnection: 'ALM Sonar'                                                #Default ALM Sonar service connection created by the ALM Team
+      # Optional targetResolveReleaseRepo: 'mvn'
+      # Optional targetResolveSnapshotRepo: 'mvn'
+      # Optional targetDeployReleaseRepo: 'mvn-local-ics-releases'
+      # Optional targetDeploySnapshotRepo: 'mvn-local-ics-snapshots'
+      # Optional ContentsVars:
+      #             Variable1: "**/*.jar"
+      #             Variable2: "**/manifest*.yml"
+      #             Variable3: "pom.xml"

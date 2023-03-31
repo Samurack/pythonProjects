@@ -1,0 +1,63 @@
+##############################################################
+# This creates a repository resource named ALMTemplates
+# and points to the ALM devops_pipeline repository.
+##############################################################
+resources:
+  repositories:                                                                
+    - repository: 'AlmTemplates'
+      type: git
+      name: ALM/devops_pipelines
+       
+#######################################################################################################################
+# Change this value to a branch name if a CI build is desired.
+# For more information on triggers:
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/repos/azure-repos-git?view=azure-devops&tabs=yaml#ci-triggers
+#######################################################################################################################
+trigger:
+- none                                                                         
+  
+stages:
+  - stage: 'Build Stage'                                                        # Name the stage what ever you like. For more information on stages: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/stages?view=azure-devops&tabs=yaml
+    jobs:
+      - job:
+        displayName: Build                                                      # Again name the job what ever you want. For more information on jobs: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/phases?tabs=yaml&view=azure-devops
+        pool:
+          name: Default                                                         # Change the pool name to 'Default' for Windows agents 'Private Linux' for Linux agents.
+          demands: docker                                                       # This demand will run the job on an agent with docker.
+        steps:                                                                  # for more information on steps: https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema?view=azure-devops&tabs=schema%2Cparameter-schema#steps
+        - template: 'docker-build/docker-build.yml@AlmTemplates'                # This line calls the ALM .Net Core template task. If any default parameters need to be changed, uncomment the parameter section and the parameter that needs to be changed.
+        parameters:                                                             # Parameters need not be added if the defaults meet your needs. Uncomment the below parameter lines to change the defaults if needed. 
+          DockerImageName: '$(Build.DefinitionName)'                            # Used to name the docker image.
+          Dockerfile: '**/Dockerfile'                                           # Enter the path to your docker file.
+          ArtifactoryExtDockerRegistry: 'ALM Docker'                            # Service Connection to artifactory.
+          Portfolio: "[enter portfolio name]"                                   # Used as folder path in artifactory.
+          DockerTag: $(Build.BuildNumber)                                       # Enter desired docker tag here.
+          DockerTagLatest: ""                                                   # Enter latest in this parameter to tag docker image with latest or some other second tag.
+          DockerVersion: 17.09.0-ce                                             # Windows version https://download.docker.com/win/static/stable/x86_64/ Linux version https://download.docker.com/linux/static/stable/x86_64/
+          DockerBuildContext: '**'                                              # Path to the build context. Pass ** to specify the directory that contains the Dockerfile.
+          ### download build artifact parameters ###
+          downloadArtifact: true                                                # Switch to false to disable the artifact download task
+          downloadArtifactBuildType: current                                    # valid values are "current" if the artifact is created in current pipeline or "specific" if created in another pipeline.
+          downloadArtifactProject: ""                                           # set if using specific buildType. Project where the pipeline resides.
+          downloadArtifactPipeline: ""                                          # set if using specific buildType. Pipeline ID. Can get the ID from the pipeline URL.
+          downloadArtifactBuildVersion: "latest"                                # set if using specific buildType. Valid values are "latest", "latestFromBranch", or "specific". The Pipeline run of the pipeline that generats the build artifact. 
+          downloadArtifactBranchName: "master"                                  # set if using specific buildType and BuildVersion is "latest", or "latestFromBranch". Specify to filter on branch/ref name, for example: refs/heads/develop.
+          downloadArtifactTag: ""                                               # set if using specific buildType and buildVersion is "latest", or "latestFromBranch". A comma-delimited list of tags. Only builds with these tags will be returned.
+          downloadArtifactBuildID: ""                                           # set if using specific buildType and buildVersion is specific. The build run ID to download the artifact. The pipeline ID is in the URL of the pipeline run.
+          downloadArtifactDownloadPath: "$(Build.ArtifactStagingDirectory)"     # Path to download the artifact to.
+          downloadArtifactArtifactName: "drop"                                  # The name of the artifact to download.
+          downloadArtifactPattern: "drop/**"                                    # Specify files to be downloaded as multi line minimatch pattern.
+          downloadArtifactDownloadType: 'specific'                              # Download a specific artifact "single" or specific files "specific" from the build.
+          ### extract files parameters ###
+          extractFile: false                                                    # Set to true if file extract is needed.
+          extractFileArchiveFilePatterns: '$(Build.SourcesDirectory)/**/*.zip'  # Patterns to match the archives you want to extract. https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/file-matching-patterns?view=azure-devops
+          extractFileDestinationFolder: '$(Build.SourcesDirectory)'             # Folder where the archives will be extracted. The default file path is relative to the root folder of the repo
+          extractFileCleanDestinationFolder: false                              # Set to true to delete all existing files in the destination folder before beginning to extract archives.
+          extractFileOverwriteExistingFiles: true                               # Set to true to overwrite files in the output directory if they already exist.
+          ### file copy parameters ###
+          fileCopy: true                                                        # Switch to false to disable the Copy File task.
+          fileCopySourceFolder: "$(Build.ArtifactStagingDirectory)/drop"        # The source folder that the copy pattern(s) will be run from.
+          fileCopyContents: '**'                                                # File paths to include as part of the copy. Supports multiple lines of match patterns.
+          fileCopyTargetFolder: "$(Build.SourcesDirectory)"                     # Location where the Dockerfile needs the build artifact.
+          fileCopyCleanTargetFolder: false                                      # Switch to true to clean target folder of the Copy file task.
+          fileCopyOverWriteFiles: true                                          # Switch to false to disable file overwrite in copy file task.
