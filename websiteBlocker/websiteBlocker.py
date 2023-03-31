@@ -4,7 +4,7 @@ import re
 import time
 from browser_history.browsers import Brave #https://browser-history.readthedocs.io/en/latest/usage.html#using-the-cli     https://realpython.com/python-lists-tuples/
 from datetime import datetime as dt
-
+t = input("Are you running powershell as an admin? if not you need to.")
 f = Brave()
 outputs = f.fetch_history()
 his = outputs.histories
@@ -139,7 +139,7 @@ def blockSitesInArray(webss):
 def writeWebsitesCheckedToFile():
    global newWebsitesChecked
    print("Checking in websites ")
-   file1 = open('D:\websiteBlocker\websites.txt', 'w')
+   file1 = open('D:\code\pythonProjects\websiteBlocker', 'w')
    for website in newWebsitesChecked:
       file1.writelines(website + "\n")
    file1.close()
