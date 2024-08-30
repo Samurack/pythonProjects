@@ -1,5 +1,5 @@
 # Samples of my coding ability
-#### RentalPropertyWebScraper - pulls all price information for a given region using BeautifulSoup from several websites.
+#### [RentalPropertyWebScraper|https://github.com/Samurack/pythonProjects/tree/main/RentalPropertyWebScraper] - pulls all price information for a given region using BeautifulSoup from several websites.
 #### Sleeping_dragons - a simple game using pygame zero.
 #### TimeWaster - Tracks the key strokes of a user, and compares them against a pre-determined list of words such as Facebook, and Ebay. If it finds the user typing one of those words it will kill the users browsers to remind them not to look at those sites.
 #### Zombie Dice - A simple cli recreation of Steve Jacksons game "Zombie dice".
