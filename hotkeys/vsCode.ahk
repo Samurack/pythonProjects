@@ -4,12 +4,7 @@
 
 #If, GetKeyState("Numpad1") ;start of context sensitive hotkeys
 v & s::
-RunWait, C:\Users\elderrollins\AppData\Local\Programs\Microsoft VS Code\Code.exe
-return 
-
-#If, GetKeyState("Numpad1") ;start of context sensitive hotkeys
-d & v::
-Run, https://dev.azure.com/churchofjesuschrist
+RunWait, C:\xxxxx\xxxxx\AppData\Local\Programs\Microsoft VS Code\Code.exe
 return 
 
 #If, GetKeyState("Numpad1") ;start of context sensitive hotkeys
@@ -24,21 +19,12 @@ return
 
 #If, GetKeyState("Numpad1") ;start of context sensitive hotkeys
 g & m::
-Run, https://mail.google.com/mail/u/0/#inbox
+Run, https://mail.google.com
 return
 
 #If, GetKeyState("Numpad1") ;start of context sensitive hotkeys
 s & t::
-Run, https://mail.google.com/mail/u/0/#inbox
-Run, https://jira.churchofjesuschrist.org/secure/RapidBoard.jspa?rapidView=3336&quickFilter=20180
-Run, C:\Users\elderrollins\AppData\Roaming\Spotify\Spotify.exe
-return
-
-#If, GetKeyState("Numpad1") ;start of context sensitive hotkeys
-b & k::
-Run, https://www.cypruscu.com/
-Run, https://www.chase.com/
-Run, https://eastidahocu.org/
+Run, https://mail.google.com
 return
 
 #If, GetKeyState("Numpad1") ;start of context sensitive hotkeys
